@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Học phát âm tiếng Đức — Demo từ JSON</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --accent:#22c55e; /* green-500 */
+      --accent-2:#38bdf8; /* sky-400 */
+      --danger:#ef4444; /* red-500 */
+      --card:#0b1222;
+      --ring:#334155;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 10% -10%, #0b1222 0%, #0f172a 35%, #0f172a 100%);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      backdrop-filter:saturate(180%) blur(8px);
+      background:rgba(15,23,42,.6); border-bottom:1px solid #1f2937;
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:16px 20px}
+    h1{margin:0; font-size:clamp(20px,2.8vw,28px)}
+    .sub{color:var(--muted); font-size:.95rem; margin-top:6px}
+
+    .toolbar{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+    .toolbar input[type="search"]{
+      flex:1 1 260px; padding:10px 12px; border-radius:10px; border:1px solid var(--ring); background:#0b1222; color:var(--text);
+      outline:none; box-shadow:0 0 0 2px transparent; transition:box-shadow .15s ease, border-color .15s ease
+    }
+    .toolbar input[type="search"]:focus{border-color:var(--accent-2); box-shadow:0 0 0 3px rgba(56,189,248,.25)}
+    .btn{
+      appearance:none; border:1px solid var(--ring); background:#0b1222; color:var(--text); padding:10px 14px; border-radius:10px;
+      cursor:pointer; transition:transform .06s ease, background .2s ease, border-color .2s ease;
+      will-change: transform, background;
+    }
+    .btn:hover{background:#0f1b33}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{border-color:#14532d; background:linear-gradient(180deg,#15803d,#166534); color:#eafff3}
+    .btn.ghost{background:transparent}
+
+    .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:14px; margin-top:16px}
+    .card{background:linear-gradient(180deg,#0b1222,#0a1220); border:1px solid #1f2a44; border-radius:16px; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,.25)}
+    .card .body{padding:14px}
+    .desc{font-size:1.05rem; font-weight:650}
+    .desc.recording{color:var(--danger);} /* ← CHỮ ĐỎ KHI GHI ÂM */
+    .small{color:var(--muted); font-size:.85rem}
+    .iframeWrap{background:#0a0f1d; border-top:1px dashed #223049; padding:8px 10px}
+
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    .pill{font-size:.8rem; color:#bef264; background:#1a2d12; border:1px solid #2a3d22; padding:4px 8px; border-radius:999px}
+
+    .recorder{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+    .level{height:8px; border-radius:999px; background:#0b1222; border:1px solid #1f2a44; overflow:hidden}
+    .level > span{display:block; height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#38bdf8)}
+
+    .footer{margin-top:28px; color:var(--muted); font-size:.9rem}
+
+    .empty{opacity:.8; border:1px dashed #334155; border-radius:16px; padding:24px; text-align:center}
+
+    .uploader{display:flex; align-items:center; gap:8px}
+    input[type="file"]{accent-color: var(--accent)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Học phát âm tiếng Đức</h1>
+      <div class="sub">Dựa trên JSON chứa <em>mẫu âm thanh Vocaroo</em> + mô tả. Lọc, xáo trộn và tự ghi âm để luyện tập.</div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Tìm từ/câu… (ví dụ: Buch, Schüler, Wer…)" />
+        <button id="shuffle" class="btn">🔀 Xáo trộn</button>
+        <button id="reset" class="btn ghost">↺ Đặt lại</button>
+        <label class="uploader">
+          <input id="file" type="file" accept="application/json" />
+          <span class="small">Tải JSON mới</span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="cards" class="grid" aria-live="polite"></section>
+    <div id="empty" class="empty" style="display:none">Không có mục nào khớp với tìm kiếm của bạn.</div>
+
+    <p class="footer">Mẹo: bạn có thể bấm “🎙 Ghi âm” để tự thu, sau đó nghe lại so sánh với mẫu. Dữ liệu ghi âm chỉ ở trên trình duyệt của bạn.</p>
+  </main>
+
+  <template id="card-tpl">
+    <article class="card">
+      <div class="body">
+        <div class="row" style="justify-content:space-between">
+          <div class="desc"></div>
+          <span class="pill">DE</span>
+        </div>
+        <div class="recorder">
+          <div class="row">
+            <button class="btn primary rec-btn">🎙 Ghi âm</button>
+            <button class="btn ghost play-btn" disabled>▶️ Phát lại</button>
+            <a class="btn ghost dl-btn" download="record.webm" style="text-decoration:none; pointer-events:none; opacity:0.5;" aria-disabled="true">⤓ Tải bản ghi</a>
+          </div>
+          <div class="level" aria-label="Mức âm lượng"><span></span></div>
+          <audio class="playback" controls style="display:none"></audio>
+        </div>
+      </div>
+      <div class="iframeWrap embed"></div>
+    </article>
+  </template>
+
+  <script>
+    // === DỮ LIỆU GỐC TỪ NGƯỜI DÙNG CUNG CẤP ===
+    const DEFAULT_DATA = [
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/1lmd1uJXlqdn?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/1lmd1uJXlqdn" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "der Lehrer"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/1o4VvWimH44r?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/1o4VvWimH44r" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Wer gibt das Buch?"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/19P70n49nEMw?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/19P70n49nEMw" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "der Schüle"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/1i0WInfOFJLS?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/1i0WInfOFJLS" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "das Buch"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/17hANBDuOuOm?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/17hANBDuOuOm" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "der Stift"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/17hANBDuOuOm?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/17hANBDuOuOm" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "die Schwester"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/19f87TgOopkb?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/19f87TgOopkb" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Ich gebe dir das Buch"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/12AEGVk8wwGN?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/12AEGVk8wwGN" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Der Schüler gibt den Stift"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/16kvVgM1lU7w?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/16kvVgM1lU7w" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Schüler gibt den Stift zu mir."
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/1689ZYeU6jfI?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/1689ZYeU6jfI" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Wer gibt was, sag es mir?"
+      },
+      {
+        embed: `<div><iframe width="300" height="60" src="https://vocaroo.com/embed/130SDLJBvCv0?autoplay=0" frameborder="0" allow="autoplay"></iframe><br><a href="https://vocaroo.com/130SDLJBvCv0" title="Vocaroo Voice Recorder" target="_blank">View on Vocaroo >></a></div>`,
+        description: "Lehrer gibt das Buch zu dir."
+      }
+    ];
+
+    let items = [...DEFAULT_DATA];
+
+    // === TIỆN ÍCH ===
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    const cardsEl = $('#cards');
+    const emptyEl = $('#empty');
+
+    function render(list){
+      cardsEl.innerHTML = '';
+      if(!list.length){
+        emptyEl.style.display='block';
+        return;
+      }
+      emptyEl.style.display='none';
+
+      const tpl = $('#card-tpl');
+      list.forEach((it, idx)=>{
+        const node = tpl.content.cloneNode(true);
+        $('.desc', node).textContent = it.description;
+        $('.embed', node).innerHTML = it.embed;
+
+        setupRecorder(node, idx);
+        cardsEl.appendChild(node);
+      });
+    }
+
+    function shuffle(){
+      for(let i=items.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [items[i],items[j]]=[items[j],items[i]];
+      }
+    }
+
+    // === GHI ÂM (client-side) ===
+    function setupRecorder(scope, cardIndex){
+      const recBtn = $('.rec-btn', scope);
+      const playBtn = $('.play-btn', scope);
+      const dlBtn = $('.dl-btn', scope);
+      const levelBar = $('.level > span', scope);
+      const playback = $('.playback', scope);
+      const descEl = $('.desc', scope);
+
+      let mediaStream = null, mediaRecorder = null, chunks = [];
+      let rafId = null, audioCtx = null, analyser = null, dataArray = null;
+      let recording = false;
+
+      async function start(){
+        try{
+          mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioCtx.createMediaStreamSource(mediaStream);
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+          source.connect(analyser);
+
+          mediaRecorder = new MediaRecorder(mediaStream, {mimeType:'audio/webm'});
+          chunks = [];
+          mediaRecorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+          mediaRecorder.onstop = onStop;
+          mediaRecorder.start();
+          recording = true;
+          recBtn.textContent = '⏹ Dừng';
+          descEl.classList.add('recording'); // ← CHỮ ĐỎ
+          animateLevel();
+        }catch(err){
+          alert('Không truy cập được micro: ' + (err.message || err));
+        }
+      }
+
+      function stop(){
+        if(mediaRecorder && recording){
+          mediaRecorder.stop();
+        }
+        if(mediaStream){
+          mediaStream.getTracks().forEach(t => t.stop());
+        }
+        if(audioCtx){
+          audioCtx.close();
+        }
+        cancelAnimationFrame(rafId);
+        levelBar.style.width = '0%';
+        recording = false;
+        recBtn.textContent = '🎙 Ghi âm';
+        descEl.classList.remove('recording'); // ← TRỞ LẠI MÀU BÌNH THƯỜNG
+      }
+
+      function onStop(){
+        const blob = new Blob(chunks, {type:'audio/webm'});
+        const url = URL.createObjectURL(blob);
+        playback.src = url;
+        playback.style.display = 'block';
+        playBtn.disabled = false;
+        playBtn.onclick = () => { playback.play().catch(e => console.warn('Play failed:', e)); };
+        dlBtn.href = url;
+        dlBtn.download = `record-${cardIndex+1}.webm`;
+        dlBtn.style.pointerEvents = 'auto';
+        dlBtn.style.opacity = '1';
+        dlBtn.setAttribute('aria-disabled', 'false');
+      }
+
+      function animateLevel(){
+        if (!recording || !analyser) return;
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (const v of dataArray) {
+          const d = v - 128;
+          sum += d * d;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const pct = Math.min(100, Math.max(0, (rms / 50) * 100));
+        levelBar.style.width = pct.toFixed(0) + '%';
+        rafId = requestAnimationFrame(animateLevel);
+      }
+
+      recBtn.addEventListener('click', () => {
+        if (!recording) {
+          start();
+        } else {
+          stop();
+        }
+      });
+    }
+
+    // === TÌM KIẾM + SỰ KIỆN ===
+    $('#search').addEventListener('input', (e)=>{
+      const q = e.target.value.trim().toLowerCase();
+      const view = items.filter(it => it.description.toLowerCase().includes(q));
+      render(view);
+    });
+
+    $('#shuffle').addEventListener('click', ()=>{ shuffle(); render(items); });
+    $('#reset').addEventListener('click', ()=>{ items=[...DEFAULT_DATA]; $('#search').value=''; render(items); });
+
+    $('#file').addEventListener('change', async (e)=>{
+      const file = e.target.files?.[0];
+      if(!file) return;
+      try{
+        const txt = await file.text();
+        const json = JSON.parse(txt);
+        if(!Array.isArray(json)) throw new Error('JSON phải là mảng các mục');
+        json.forEach((it,i)=>{
+          if(typeof it.embed !== 'string' || typeof it.description !== 'string'){
+            throw new Error('Mỗi mục cần có trường "embed" (HTML) và "description" (chuỗi)');
+          }
+        });
+        items = json;
+        $('#search').value='';
+        render(items);
+      }catch(err){
+        alert('JSON không hợp lệ: ' + err.message);
+      }
+      e.target.value = '';
+    });
+
+    // Focus vào ô tìm kiếm khi tải trang
+    window.addEventListener('load', () => {
+      $('#search').focus();
+    });
+
+    // Khởi tạo
+    render(items);
+  </script>
+</body>
+</html>
